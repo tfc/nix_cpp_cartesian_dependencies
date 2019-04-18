@@ -17,4 +17,4 @@ let
       nameValuePair ("${name}-output") (f deriv)
     ) derivations;
 in
-  if passthroughDerivations then derivations else {} // outputs
+  (if passthroughDerivations then derivations else {}) // outputs
