@@ -4,44 +4,39 @@
 }:
 
 let
-  compilers = with pkgs; {
-    gcc7 = stdenv;
-    gcc8 = overrideCC stdenv gcc8;
-    clang7 = overrideCC stdenv clang_7;
-    clang8 = overrideCC stdenv clang_8;
+  inputs = pkgs.lib.cartesianProductOfSets {
+    stdenv = with pkgs; [
+      (overrideCC stdenv gcc9)
+      (overrideCC stdenv gcc10)
+      (overrideCC stdenv gcc11)
+      (overrideCC clangStdenv clang_10)
+      (overrideCC clangStdenv clang_11)
+      (overrideCC clangStdenv clang_12)
+    ];
+
+    boost = with pkgs; [ boost173 boost174 boost175 ];
+
+    poco = with pkgs; [
+      poco
+      (poco.overrideAttrs (oldAttrs: {
+        pname = "poco";
+        version = "1.9.1";
+        src = pkgs.fetchgit {
+          url = "https://github.com/pocoproject/poco.git";
+          rev = "196540ce34bf884921ff3f9ce338e38fc938acdd";
+          sha256 = "0q0xihkm2z8kndx40150inq7llcyny59cv016gxsx0vbzzbdkcnd";
+        };
+      }))
+    ];
   };
 
-  pocoLibs = {
-    poco190 = pkgs.poco;
-    poco191 = pkgs.poco.overrideAttrs (oldAttrs: {
-      name = "poco-1.9.1";
-      src = pkgs.fetchzip {
-        url = "https://github.com/pocoproject/poco/archive/poco-1.9.1.zip";
-        sha256 = "0d5d6cxv5k0r0kcr2zjsxzjbpd8s1x8dmwzsjh04yq470i8jw9zz";
-      };
-    });
-  };
-
-  boostLibs = {
-    inherit (pkgs) boost166 boost167 boost168 boost169;
-  };
-
-  originalDerivation = [ (pkgs.callPackage (import ./derivation.nix) {}) ];
-
-  f = libname: libs: derivs: with pkgs.lib;
-    concatMap (deriv:
-      mapAttrsToList (libVers: lib:
-        (deriv.override { "${libname}" = lib; }).overrideAttrs
-          (old: { name = "${old.name}-${libVers}"; })
-      ) libs
-    ) derivs;
-
-  overrides = [
-    (f "stdenv" compilers)
-    (f "poco"   pocoLibs)
-    (f "boost"  boostLibs)
-  ];
+  toKeyValue = input@{ stdenv, boost, poco }:
+    let replDots = pkgs.lib.strings.replaceChars ["."] ["_"];
+    in pkgs.lib.nameValuePair
+      # just dropping the dots from version numbers because nix uses dots
+      # to refer to describe paths into attribute trees
+      "${replDots stdenv.cc.cc.name}-poco-${replDots poco.version}-boost${replDots boost.version}"
+      (import ./derivation.nix input);
 in
-  pkgs.lib.foldl (a: b: a // { "${b.name}" = b; }) {} (
-    pkgs.lib.foldl (a: f: f a) originalDerivation overrides
-  )
+
+builtins.listToAttrs (builtins.map toKeyValue inputs)
