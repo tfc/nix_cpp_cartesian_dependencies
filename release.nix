@@ -3,6 +3,8 @@ let
   pkgs = import sources.nixpkgs { };
   oldPkgs = import sources.nixpkgs-2105 { };
 
+  default = pkgs.callPackage ./derivation.nix {};
+
   inputs = pkgs.lib.cartesianProductOfSets {
     stdenv = with pkgs; [
       (overrideCC stdenv gcc9)
@@ -28,7 +30,9 @@ let
       # just dropping the dots from version numbers because nix uses dots
       # to refer to describe paths into attribute trees
       "${replDots stdenv.cc.cc.name}-poco-${replDots poco.version}-boost-${replDots boost.version}"
-      (pkgs.callPackage ./derivation.nix input);
+      (default.override input);
 in
-
-builtins.listToAttrs (builtins.map toKeyValue inputs)
+{
+  inherit default;
+  variants = pkgs.recurseIntoAttrs (builtins.listToAttrs (builtins.map toKeyValue inputs));
+}
