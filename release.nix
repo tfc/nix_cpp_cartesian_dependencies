@@ -3,17 +3,12 @@ let
   pkgs = import sources.nixpkgs { };
   oldPkgs = import sources.nixpkgs-2105 { };
 
-  default = pkgs.callPackage ./derivation.nix {};
+  default = pkgs.callPackage ./derivation.nix { };
 
   inputs = pkgs.lib.cartesianProductOfSets {
-    stdenv = with pkgs; [
-      (overrideCC stdenv gcc9)
-      (overrideCC stdenv gcc10)
-      (overrideCC stdenv gcc11)
-      (overrideCC clangStdenv clang_10)
-      (overrideCC clangStdenv clang_11)
-      (overrideCC clangStdenv clang_12)
-    ];
+    stdenv = with pkgs;
+      map (overrideCC stdenv) [ gcc9 gcc10 gcc11 ]
+      ++ map (overrideCC clangStdenv) [ clang_10 clang_11 clang_12 ];
 
     boost = with pkgs; [ boost173 boost174 boost175 ];
 
